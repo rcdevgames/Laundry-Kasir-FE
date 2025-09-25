@@ -5,8 +5,17 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const useServiceStore = defineStore('service', {
   state: () => ({
-    // Services will be loaded from server
-    services: [],
+    // Sample services data
+    services: [
+      { id: 's1', name: 'Cuci Kering', price: 5000, unit: 'kg' },
+      { id: 's2', name: 'Cuci Setrika', price: 7000, unit: 'kg' },
+      { id: 's3', name: 'Dry Clean', price: 15000, unit: 'pcs' },
+      { id: 's4', name: 'Setrika Saja', price: 3000, unit: 'kg' },
+      { id: 's5', name: 'Cuci Sepatu', price: 20000, unit: 'pasang' },
+      { id: 's6', name: 'Cuci Boneka', price: 25000, unit: 'pcs' },
+      { id: 's7', name: 'Cuci Karpet', price: 12000, unit: 'meter' },
+      { id: 's8', name: 'Express 1 Hari', price: 10000, unit: 'kg' },
+    ],
     error: null,
     loading: false,
   }),
