@@ -15,7 +15,8 @@ import {
   faSpinner, faCheckCircle, faTimesCircle, faExclamationCircle,
   faInfoCircle, faStar, faHeart, faShare, faComment, faThumbsUp,
   faLayerGroup, faPenToSquare, faChartBar, faMagnifyingGlass, faGear, faHouse,
-  faMoneyBillWave, faCreditCard, faQrcode, faShirt, faWind, faFire, faMinus
+  faMoneyBillWave, faCreditCard, faQrcode, faShirt, faWind, faFire, faMinus,
+  faInbox, faTint, faBox, faTruck, faSyncAlt, faClock, faList, faClipboardList
 } from '@fortawesome/free-solid-svg-icons'
 
 // Add icons to library
@@ -27,7 +28,8 @@ library.add(
   faSpinner, faCheckCircle, faTimesCircle, faExclamationCircle,
   faInfoCircle, faStar, faHeart, faShare, faComment, faThumbsUp,
   faLayerGroup, faPenToSquare, faChartBar, faMagnifyingGlass, faGear, faHouse,
-  faMoneyBillWave, faCreditCard, faQrcode, faShirt, faWind, faFire, faMinus
+  faMoneyBillWave, faCreditCard, faQrcode, faShirt, faWind, faFire, faMinus,
+  faInbox, faTint, faBox, faTruck, faSyncAlt, faClock, faList, faClipboardList
 )
 
 const app = createApp(App)

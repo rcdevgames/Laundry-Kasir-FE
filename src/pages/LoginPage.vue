@@ -4,13 +4,12 @@
       <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
         <div class="text-center mb-8">
           <div class="mx-auto flex justify-center">
-            <div class="p-3 bg-indigo-100 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-              </svg>
-            </div>
+            <img 
+              src="/waw-laundry-logo.svg" 
+              alt="Waw Laundry Logo" 
+              class="h-16 w-auto"
+            />
           </div>
-          <h1 class="mt-4 text-2xl font-bold text-gray-900">Laundry Kasir</h1>
           <p class="mt-2 text-gray-500">Sign in to your account</p>
         </div>
         
@@ -70,7 +69,7 @@
         </form>
       </div>
       <p class="mt-6 text-center text-sm text-gray-500">
-        &copy; {{ new Date().getFullYear() }} Laundry Kasir. All rights reserved.
+        &copy; {{ new Date().getFullYear() }} Waw Laundry. All rights reserved.
       </p>
     </div>
   </div>

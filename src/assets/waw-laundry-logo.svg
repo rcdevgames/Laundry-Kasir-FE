@@ -1,0 +1,49 @@
+<svg width="120" height="40" viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bubbleGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#6366F1;stop-opacity:0.9" />
+    </linearGradient>
+    <linearGradient id="bubbleGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06B6D4;stop-opacity:0.7" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:0.8" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#7C3AED;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6366F1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Washing machine/laundry icon with bubbles -->
+  <g transform="translate(2,4)">
+    <!-- Main washing machine body -->
+    <rect x="0" y="8" width="24" height="24" rx="4" fill="url(#textGradient)" stroke="#4338CA" stroke-width="1"/>
+    
+    <!-- Washing machine door -->
+    <circle cx="12" cy="20" r="8" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+    <circle cx="12" cy="20" r="5" fill="none" stroke="#E0E7FF" stroke-width="1"/>
+    
+    <!-- Control panel -->
+    <rect x="2" y="10" width="20" height="4" rx="2" fill="#E0E7FF"/>
+    <circle cx="6" cy="12" r="1" fill="#4F46E5"/>
+    <circle cx="10" cy="12" r="1" fill="#7C3AED"/>
+    <circle cx="14" cy="12" r="1" fill="#6366F1"/>
+    
+    <!-- Soap bubbles -->
+    <circle cx="30" cy="12" r="3" fill="url(#bubbleGradient1)"/>
+    <circle cx="36" cy="8" r="2" fill="url(#bubbleGradient2)"/>
+    <circle cx="32" cy="20" r="2.5" fill="url(#bubbleGradient1)"/>
+    <circle cx="38" cy="16" r="1.5" fill="url(#bubbleGradient2)"/>
+    <circle cx="28" cy="26" r="2" fill="url(#bubbleGradient1)"/>
+    <circle cx="35" cy="28" r="1.8" fill="url(#bubbleGradient2)"/>
+  </g>
+  
+  <!-- Waw Laundry Text -->
+  <text x="48" y="16" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="800" fill="url(#textGradient)">WAW</text>
+  <text x="48" y="28" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="600" fill="#6B7280">LAUNDRY</text>
+  
+  <!-- Decorative wave elements -->
+  <path d="M48 32 Q52 30 56 32 T64 32" stroke="#8B5CF6" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M66 32 Q70 30 74 32 T82 32" stroke="#6366F1" stroke-width="2" fill="none" opacity="0.6"/>
+</svg>

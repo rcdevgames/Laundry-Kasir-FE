@@ -4,10 +4,12 @@
     <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
       <nav class="container mx-auto px-3 sm:px-6 py-3 md:py-4">
         <div class="flex justify-between items-center">
-          <router-link to="/" class="text-lg md:text-xl font-bold text-indigo-700 flex items-center">
-            <FontAwesomeIcon icon="shopping-cart" class="h-5 w-5 md:h-6 md:w-6 mr-2" />
-            <span class="hidden xs:inline">Laundry Kasir</span>
-            <span class="xs:hidden">Kasir</span>
+          <router-link to="/" class="flex items-center">
+            <img 
+              src="/waw-laundry-logo.svg" 
+              alt="Waw Laundry Logo" 
+              class="h-8 w-auto md:h-10"
+            />
           </router-link>
           
           <!-- Mobile profile/menu button -->
@@ -76,6 +78,13 @@
               Transaksi
             </router-link>
             <router-link 
+              to="/progress" 
+              class="px-4 py-2 rounded-lg text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 text-sm lg:text-base min-h-[40px] flex items-center transition-colors duration-200"
+              :class="{ 'bg-indigo-50 text-indigo-700': currentPath.includes('/progress') }"
+            >
+              Progress
+            </router-link>
+            <router-link 
               to="/reports" 
               class="px-4 py-2 rounded-lg text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 text-sm lg:text-base min-h-[40px] flex items-center transition-colors duration-200"
               :class="{ 'bg-indigo-50 text-indigo-700': currentPath.includes('/reports') }"
@@ -128,12 +137,12 @@
         </router-link>
         
         <router-link 
-          to="/services" 
+          to="/progress" 
           class="flex flex-col items-center justify-center text-xs font-medium transition-colors duration-200"
-          :class="currentPath.includes('/services') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600'"
+          :class="currentPath.includes('/progress') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600'"
         >
-          <FontAwesomeIcon icon="cog" class="h-5 w-5 mb-1" />
-          <span>Services</span>
+          <FontAwesomeIcon icon="list" class="h-5 w-5 mb-1" />
+          <span>Progress</span>
         </router-link>
         
         <router-link 
@@ -192,10 +201,11 @@ const getCurrentPageTitle = () => {
     '/customers': 'Customers',
     '/services': 'Services', 
     '/transactions': 'Transaksi',
+    '/progress': 'Progress',
     '/reports': 'Reports'
   };
   
-  return routeTitles[currentPath.value] || 'Laundry Kasir';
+  return routeTitles[currentPath.value] || 'Waw Laundry';
 };
 
 // Close profile menu when clicking outside

@@ -5,6 +5,7 @@ import DashboardPage from '../pages/DashboardPage.vue';
 import CustomerManagementPage from '../pages/CustomerManagementPage.vue';
 import ServiceManagementPage from '../pages/ServiceManagementPage.vue';
 import TransactionPage from '../pages/TransactionPage.vue';
+import ProgressPage from '../pages/ProgressPage.vue';
 import ReportPage from '../pages/ReportPage.vue';
 import DefaultLayout from '../layouts/DefaultLayout.vue';
 import LoginLayout from '../layouts/LoginLayout.vue';
@@ -25,6 +26,7 @@ const routes = [
       { path: 'customers', component: CustomerManagementPage, name: 'customers' },
       { path: 'services', component: ServiceManagementPage, name: 'services' },
       { path: 'transactions', component: TransactionPage, name: 'transactions' },
+      { path: 'progress', component: ProgressPage, name: 'progress' },
       { path: 'reports', component: ReportPage, name: 'reports' },
     ]
   },
