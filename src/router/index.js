@@ -27,7 +27,7 @@ const routes = [
       { path: 'services', component: ServiceManagementPage, name: 'services' },
       { path: 'transactions', component: TransactionPage, name: 'transactions' },
       { path: 'progress', component: ProgressPage, name: 'progress' },
-      { path: 'reports', component: ReportPage, name: 'reports' },
+      { path: 'reports', component: ReportPage, name: 'reports' }
     ]
   },
 ];

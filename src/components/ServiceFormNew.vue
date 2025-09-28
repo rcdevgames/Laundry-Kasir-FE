@@ -240,18 +240,18 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
-import { validateForm, sanitizeFormData, getFieldClass } from '@/utils/validation'
+import { ref, watch, computed } from 'vue';
+import { validateForm, sanitizeFormData, getFieldClass } from '../utils/validation.js';
 
 const props = defineProps({
   visible: Boolean,
-  service: Object
-})
+  service: Object, // Used for editing
+});
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(['close', 'save']);
 
-// Form state
 const form = ref({
+  id: null,
   name: '',
   category: '',
   icon: '',
@@ -259,66 +259,88 @@ const form = ref({
   unit: '',
   description: '',
   is_active: true
-})
+});
 
-const errors = ref({})
-const touched = ref({})
-const isSubmitting = ref(false)
+const errors = ref({});
+const touched = ref({});
+const isSubmitting = ref(false);
 
-// Icon options
-const iconOptions = ref([
-  { value: 'tshirt', icon: 'tshirt' },
-  { value: 'spray-can', icon: 'spray-can' },
-  { value: 'iron', icon: 'iron' },
-  { value: 'shoe-prints', icon: 'shoe-prints' },
-  { value: 'star', icon: 'star' },
-  { value: 'clock', icon: 'clock' }
-])
+const isEditMode = computed(() => !!props.service);
+const schemaName = computed(() => isEditMode.value ? 'updateService' : 'createService');
 
-// Computed
-const isEditMode = computed(() => !!props.service?.id)
-const schemaName = computed(() => isEditMode.value ? 'updateService' : 'createService')
+// Icon options for service types
+const iconOptions = [
+  { value: 'tshirt', icon: ['fas', 'tshirt'] },
+  { value: 'soap', icon: ['fas', 'soap'] },
+  { value: 'iron', icon: ['fas', 'iron'] },
+  { value: 'shoe-prints', icon: ['fas', 'shoe-prints'] },
+  { value: 'sparkles', icon: ['fas', 'sparkles'] },
+  { value: 'bolt', icon: ['fas', 'bolt'] },
+  { value: 'star', icon: ['fas', 'star'] },
+  { value: 'heart', icon: ['fas', 'heart'] },
+  { value: 'shield-alt', icon: ['fas', 'shield-alt'] },
+  { value: 'magic', icon: ['fas', 'magic'] },
+  { value: 'gem', icon: ['fas', 'gem'] },
+  { value: 'crown', icon: ['fas', 'crown'] }
+];
 
 // Validation helpers
-const getInputClass = (fieldName) => getFieldClass(fieldName, errors.value, touched.value)
+const getInputClass = (fieldName) => getFieldClass(fieldName, errors.value, touched.value);
 
 const markTouched = (fieldName) => {
-  touched.value[fieldName] = true
-  validateField(fieldName)
-}
+  touched.value[fieldName] = true;
+  validateField(fieldName);
+};
 
 const validateField = (fieldName) => {
-  const tempData = { [fieldName]: form.value[fieldName] }
-  const validation = validateForm(tempData, schemaName.value)
+  const tempData = { [fieldName]: form.value[fieldName] };
+  const validation = validateForm(tempData, schemaName.value);
   
   if (validation.errors[fieldName]) {
-    errors.value[fieldName] = validation.errors[fieldName]
+    errors.value[fieldName] = validation.errors[fieldName];
   } else {
-    delete errors.value[fieldName]
+    delete errors.value[fieldName];
   }
-}
+};
 
 const validateAllFields = () => {
-  const validation = validateForm(form.value, schemaName.value)
-  errors.value = validation.errors
+  const validation = validateForm(form.value, schemaName.value);
+  errors.value = validation.errors;
   
   // Mark all fields as touched
   Object.keys(form.value).forEach(key => {
-    touched.value[key] = true
-  })
+    touched.value[key] = true;
+  });
   
-  return validation.isValid
-}
-
-
+  return validation.isValid;
+};
 
 const selectIcon = (iconValue) => {
-  form.value.icon = iconValue
-  validateField('icon')
-}
+  form.value.icon = iconValue;
+  markTouched('icon');
+};
+
+watch(() => props.service, (newVal) => {
+  if (newVal) {
+    form.value = {
+      ...newVal,
+      description: newVal.description || '',
+      is_active: newVal.is_active !== undefined ? newVal.is_active : true
+    };
+  } else {
+    resetForm();
+  }
+});
+
+watch(() => props.visible, (newVal) => {
+  if (!newVal) {
+    resetForm();
+  }
+});
 
 const resetForm = () => {
   form.value = {
+    id: null,
     name: '',
     category: '',
     icon: '',
@@ -326,86 +348,38 @@ const resetForm = () => {
     unit: '',
     description: '',
     is_active: true
-  }
-  errors.value = {}
-  touched.value = {}
-  isSubmitting.value = false
-}
+  };
+  errors.value = {};
+  touched.value = {};
+  isSubmitting.value = false;
+};
 
 const handleSubmit = async () => {
-  if (isSubmitting.value) return
+  if (isSubmitting.value) return;
   
-  isSubmitting.value = true
+  isSubmitting.value = true;
   
   try {
     if (!validateAllFields()) {
-      isSubmitting.value = false
-      return
+      isSubmitting.value = false;
+      return;
     }
 
-    // Sanitize form data according to schema (ID is automatically preserved)
-    const sanitizedData = sanitizeFormData(form.value, schemaName.value)
+    // Sanitize form data according to schema
+    const sanitizedData = sanitizeFormData(form.value, schemaName.value);
     
-    // Preserve ID for update operations
-    if (isEditMode.value && props.service?.id) {
-      sanitizedData.id = props.service.id
-    }
-    
-    console.log('ServiceForm: Form data before sanitize:', form.value)
-    console.log('ServiceForm: Sanitized data being sent:', sanitizedData)
-    console.log('ServiceForm: Is edit mode:', isEditMode.value)
-    
-    emit('save', sanitizedData)
-    close()
+    emit('save', sanitizedData);
+    close();
   } catch (error) {
-    console.error('Form submission error:', error)
+    console.error('Form submission error:', error);
   } finally {
-    isSubmitting.value = false
+    isSubmitting.value = false;
   }
-}
+};
 
 const close = () => {
-  emit('close')
-}
-
-// Watchers
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    if (props.service) {
-      // Edit mode
-      console.log('ServiceForm: Setting form with service data:', props.service);
-      form.value = {
-        name: props.service.name || '',
-        category: props.service.category || '',
-        icon: props.service.icon || '',
-        price: props.service.price || 0,
-        unit: props.service.unit || '',
-        description: props.service.description || '',
-        is_active: props.service.is_active !== false
-      }
-    } else {
-      // Add mode
-      console.log('ServiceForm: Resetting form for new service');
-      resetForm()
-    }
-  } else {
-    resetForm()
-  }
-})
-
-// Watch for service prop changes (for when modal opens with existing service)
-watch(() => props.service, (newVal) => {
-  if (newVal && props.visible) {
-    console.log('ServiceForm: Service prop changed:', newVal);
-    form.value = {
-      name: newVal.name || '',
-      category: newVal.category || '',
-      icon: newVal.icon || '',
-      price: newVal.price || 0,
-      unit: newVal.unit || '',
-      description: newVal.description || '',
-      is_active: newVal.is_active !== false
-    }
-  }
-})
+  setTimeout(() => {
+    emit('close');
+  }, 0);
+};
 </script>

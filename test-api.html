@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            border-left: 4px solid #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Laundry Management API Test</h1>
+        <p>Test semua API endpoints untuk memastikan implementasi sesuai dengan Swagger documentation.</p>
+        
+        <div class="test-section">
+            <h3>Authentication API</h3>
+            <button onclick="testLogin()">Test Login</button>
+            <button onclick="testMe()">Test Me</button>
+            <button onclick="testLogout()">Test Logout</button>
+            <button onclick="testCsrfToken()">Test CSRF Token</button>
+            <div id="auth-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Customer API</h3>
+            <button onclick="testGetCustomers()">Get Customers</button>
+            <button onclick="testCreateCustomer()">Create Customer</button>
+            <div id="customer-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Service API</h3>
+            <button onclick="testGetServices()">Get Services</button>
+            <button onclick="testCreateService()">Create Service</button>
+            <button onclick="testGetActiveServices()">Get Active Services</button>
+            <div id="service-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Transaction API</h3>
+            <button onclick="testGetTransactions()">Get Transactions</button>
+            <button onclick="testCreateTransaction()">Create Transaction</button>
+            <div id="transaction-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Report API</h3>
+            <button onclick="testGetReports()">Get Reports</button>
+            <button onclick="testSummaryReport()">Summary Report</button>
+            <button onclick="testFinancialReport()">Financial Report</button>
+            <div id="report-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Simulate environment variables
+        const API_BASE_URL = 'http://localhost:8080/api/v1';
+        
+        // Global state for testing
+        let testToken = null;
+        let testCustomerId = null;
+        let testServiceId = null;
+        let testTransactionId = null;
+
+        // Helper function to make API calls
+        async function apiCall(url, options = {}) {
+            const defaultHeaders = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            };
+
+            // Add CSRF token if available
+            const csrfToken = localStorage.getItem('csrf_token');
+            if (csrfToken) {
+                defaultHeaders['X-CSRF-Token'] = csrfToken;
+            }
+
+            // Add auth token if available
+            if (testToken) {
+                defaultHeaders['Authorization'] = `Bearer ${testToken}`;
+            }
+
+            const config = {
+                ...options,
+                headers: {
+                    ...defaultHeaders,
+                    ...options.headers
+                }
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${url}`, config);
+                
+                // Handle CSRF token requirement
+                if (response.status === 419) {
+                    console.log('CSRF token required, fetching...');
+                    await getCsrfToken();
+                    // Retry with CSRF token
+                    const newHeaders = { ...config.headers };
+                    newHeaders['X-CSRF-Token'] = localStorage.getItem('csrf_token');
+                    const retryResponse = await fetch(`${API_BASE_URL}${url}`, {
+                        ...config,
+                        headers: newHeaders
+                    });
+                    return await retryResponse.json();
+                }
+                
+                return await response.json();
+            } catch (error) {
+                return {
+                    success: false,
+                    message: `Network error: ${error.message}`,
+                    error: error
+                };
+            }
+        }
+
+        // Helper function to get CSRF token
+        async function getCsrfToken() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/csrf-token`);
+                const data = await response.json();
+                if (data.csrf_token) {
+                    localStorage.setItem('csrf_token', data.csrf_token);
+                }
+                return data.csrf_token;
+            } catch (error) {
+                console.error('Failed to get CSRF token:', error);
+                return null;
+            }
+        }
+
+        // Helper function to display results
+        function displayResult(elementId, result, operation) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const isSuccess = result.success !== false;
+            
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.textContent = `[${timestamp}] ${operation}:\n${JSON.stringify(result, null, 2)}`;
+        }
+
+        // Authentication API Tests
+        async function testLogin() {
+            const result = await apiCall('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: 'admin@laundry.com',
+                    password: 'password123'
+                })
+            });
+            
+            if (result.success && result.data?.token) {
+                testToken = result.data.token;
+            }
+            
+            displayResult('auth-result', result, 'Login');
+        }
+
+        async function testMe() {
+            const result = await apiCall('/auth/me');
+            displayResult('auth-result', result, 'Get Me');
+        }
+
+        async function testLogout() {
+            const result = await apiCall('/auth/logout', {
+                method: 'POST'
+            });
+            
+            if (result.success) {
+                testToken = null;
+            }
+            
+            displayResult('auth-result', result, 'Logout');
+        }
+
+        async function testCsrfToken() {
+            const result = await apiCall('/csrf-token');
+            displayResult('auth-result', result, 'Get CSRF Token');
+        }
+
+        // Customer API Tests
+        async function testGetCustomers() {
+            const result = await apiCall('/customers?page=1&limit=10');
+            displayResult('customer-result', result, 'Get Customers');
+        }
+
+        async function testCreateCustomer() {
+            const result = await apiCall('/customers', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Test Customer ' + Date.now(),
+                    email: `test${Date.now()}@example.com`,
+                    phone: '081234567890',
+                    address: 'Test Address'
+                })
+            });
+            
+            if (result.success && result.data?.customer?.id) {
+                testCustomerId = result.data.customer.id;
+            }
+            
+            displayResult('customer-result', result, 'Create Customer');
+        }
+
+        // Service API Tests
+        async function testGetServices() {
+            const result = await apiCall('/services?page=1&limit=10');
+            displayResult('service-result', result, 'Get Services');
+        }
+
+        async function testCreateService() {
+            const result = await apiCall('/services', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Test Service ' + Date.now(),
+                    description: 'Test service description',
+                    price: 15000,
+                    unit: 'pcs',
+                    estimated_duration: 120,
+                    is_active: true
+                })
+            });
+            
+            if (result.success && result.data?.service?.id) {
+                testServiceId = result.data.service.id;
+            }
+            
+            displayResult('service-result', result, 'Create Service');
+        }
+
+        async function testGetActiveServices() {
+            const result = await apiCall('/services/active');
+            displayResult('service-result', result, 'Get Active Services');
+        }
+
+        // Transaction API Tests
+        async function testGetTransactions() {
+            const result = await apiCall('/transactions?page=1&limit=10');
+            displayResult('transaction-result', result, 'Get Transactions');
+        }
+
+        async function testCreateTransaction() {
+            if (!testCustomerId) {
+                displayResult('transaction-result', {
+                    success: false,
+                    message: 'Please create a customer first'
+                }, 'Create Transaction');
+                return;
+            }
+
+            const result = await apiCall('/transactions', {
+                method: 'POST',
+                body: JSON.stringify({
+                    customer_id: testCustomerId,
+                    payment_method: 'cash',
+                    items: [
+                        {
+                            service_id: testServiceId || 1,
+                            quantity: 2,
+                            unit_price: 15000,
+                            subtotal: 30000
+                        }
+                    ],
+                    total_amount: 30000,
+                    notes: 'Test transaction'
+                })
+            });
+            
+            if (result.success && result.data?.transaction?.id) {
+                testTransactionId = result.data.transaction.id;
+            }
+            
+            displayResult('transaction-result', result, 'Create Transaction');
+        }
+
+        // Report API Tests
+        async function testGetReports() {
+            const today = new Date().toISOString().split('T')[0];
+            const result = await apiCall(`/reports?start_date=${today}&end_date=${today}`);
+            displayResult('report-result', result, 'Get Reports');
+        }
+
+        async function testSummaryReport() {
+            const today = new Date().toISOString().split('T')[0];
+            const result = await apiCall(`/reports/summary?start_date=${today}&end_date=${today}`);
+            displayResult('report-result', result, 'Summary Report');
+        }
+
+        async function testFinancialReport() {
+            const today = new Date().toISOString().split('T')[0];
+            const result = await apiCall(`/reports/financial?start_date=${today}&end_date=${today}`);
+            displayResult('report-result', result, 'Financial Report');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('API Test page loaded');
+            console.log('Make sure your backend server is running on http://localhost:8080');
+        });
+    </script>
+</body>
+</html>

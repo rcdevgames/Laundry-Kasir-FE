@@ -44,8 +44,14 @@
             <div class="text-base font-semibold text-gray-900 mb-1">
               {{ item.name }}
             </div>
-            <div class="text-sm text-gray-600 mb-2">
+            <div class="text-sm text-gray-600 mb-1">
               Rp {{ item.price.toLocaleString() }} / {{ item.unit }}
+            </div>
+            <div v-if="item.category" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full inline-block mb-2">
+              {{ item.category }}
+            </div>
+            <div v-if="item.description" class="text-sm text-gray-500 line-clamp-2">
+              {{ item.description }}
             </div>
           </div>
           <div class="flex space-x-1 ml-4">
@@ -72,6 +78,14 @@
         </span>
         <span class="text-xs text-gray-500 ml-1">/ {{ item.unit }}</span>
       </template>
+
+      <!-- Custom category column -->
+      <template #column-category="{ value }">
+        <span v-if="value" class="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
+          {{ value }}
+        </span>
+        <span v-else class="text-gray-400">-</span>
+      </template>
     </DataTable>
 
     <ServiceForm
@@ -81,13 +95,7 @@
       @save="handleSave"
     />
 
-    <ConfirmationModal
-      :visible="isDeleteModalVisible"
-      :title="'Delete Service'"
-      :message="`Are you sure you want to delete '${serviceToDelete?.name}'? This action cannot be undone.`"
-      @confirm="confirmDelete"
-      @cancel="cancelDelete"
-    />
+
     
     <!-- Global Error/Notification Display -->
     <div v-if="serviceStore.error" class="mt-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
@@ -102,9 +110,10 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useServiceStore } from '../store/service';
+import { serviceAPI, apiUtils } from '../services/index.js';
+import { swalUtils } from '../utils/swal.js';
 import DataTable from '../components/DataTable.vue';
 import ServiceForm from '../components/ServiceForm.vue';
-import ConfirmationModal from '../components/ConfirmationModal.vue';
 
 const serviceStore = useServiceStore();
 
@@ -115,12 +124,11 @@ const selectedService = ref(null);
 const serviceColumns = [
   { key: 'name', label: 'Service Name', weight: 'bold' },
   { key: 'price', label: 'Price', align: 'right', format: 'currency' },
-  { key: 'unit', label: 'Unit', nowrap: true }
+  { key: 'unit', label: 'Unit', nowrap: true },
+  { key: 'category', label: 'Category', nowrap: true }
 ];
 
-// Delete confirmation modal state
-const isDeleteModalVisible = ref(false);
-const serviceToDelete = ref(null);
+
 
 // Pagination and search state
 const searchQuery = ref('');
@@ -137,6 +145,7 @@ const openAddModal = () => {
 };
 
 const openEditModal = (service) => {
+  console.log('ServiceManagementPage: Opening edit modal with service:', service);
   selectedService.value = service;
   isModalVisible.value = true;
 };
@@ -152,48 +161,75 @@ const closeModal = () => {
 
 const handleSave = async (service) => {
   try {
+    serviceStore.loading = true;
+    let result;
+    console.log('Saving service:', service);
+    
     if (service.id) {
-      // Update existing service
-      serviceStore.updateService(service);
-      window.toast?.success('Service Updated', `${service.name} has been updated successfully`);
+      // Update existing service - exclude ID from the payload body
+      const { id, ...updateData } = service;
+      result = await serviceAPI.updateService(id, updateData);
+      await swalUtils.toast.success(`${service.name} berhasil diperbarui! ✨`);
     } else {
-      // Add new service
-      serviceStore.addService(service);
-      window.toast?.success('Service Added', `${service.name} has been added successfully`);
+      // Add new service - exclude ID field entirely
+      const { id, ...createData } = service;
+      result = await serviceAPI.createService(createData);
+      await swalUtils.toast.success(`${service.name} berhasil ditambahkan! 🎉`);
     }
     
-    // If there was no error, close the modal and reload data
-    if (!serviceStore.error) {
-      closeModal();
-      await loadServices(); // Reload data from server
-    }
+    closeModal();
+    await loadServices(); // Reload data from server
+    
   } catch (error) {
     console.error('Error saving service:', error);
-    serviceStore.error = 'Failed to save service';
-    window.toast?.error('Error', 'Failed to save service');
+    const errorInfo = apiUtils.handleError(error);
+    
+    await swalUtils.error(
+      'Gagal Menyimpan Data!',
+      errorInfo.message || 'Terjadi kesalahan saat menyimpan data service'
+    );
+  } finally {
+    serviceStore.loading = false;
   }
 };
 
-const handleDelete = (serviceId) => {
+const handleDelete = async (serviceId) => {
   const service = serviceStore.services.find(s => s.id === serviceId);
-  serviceToDelete.value = service;
-  isDeleteModalVisible.value = true;
-};
-
-const confirmDelete = () => {
-  if (serviceToDelete.value) {
-    serviceStore.deleteService(serviceToDelete.value.id);
-    window.toast?.success('Service Deleted', `${serviceToDelete.value.name} has been deleted successfully`);
-    // Refresh data after delete
-    loadServices();
+  
+  if (!service) return;
+  
+  const result = await swalUtils.confirmDelete(
+    'Hapus Service?',
+    `Apakah Anda yakin ingin menghapus service "${service.name}"? Data yang dihapus tidak dapat dikembalikan!`
+  );
+  
+  if (result.isConfirmed) {
+    await confirmDelete(service);
   }
-  cancelDelete();
 };
 
-const cancelDelete = () => {
-  isDeleteModalVisible.value = false;
-  serviceToDelete.value = null;
+const confirmDelete = async (service) => {
+  try {
+    serviceStore.loading = true;
+    await serviceAPI.deleteService(service.id);
+    
+    await swalUtils.toast.success(`${service.name} berhasil dihapus! 🗑️`);
+    await loadServices(); // Refresh data
+    
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    const errorInfo = apiUtils.handleError(error);
+    
+    await swalUtils.error(
+      'Gagal Menghapus Data!',
+      errorInfo.message || 'Terjadi kesalahan saat menghapus service'
+    );
+  } finally {
+    serviceStore.loading = false;
+  }
 };
+
+
 
 // Server-side pagination and search handlers
 const handleSearch = (query) => {
@@ -221,24 +257,37 @@ const handlePerPageChange = (newPerPage) => {
   loadServices();
 };
 
-// Load services from server (simulation)
+// Load services from server
 const loadServices = async () => {
-  serviceStore.loading = true;
-  
   try {
-    // This would be your actual API call
-    // const response = await api.getServices({
-    //   page: currentPage.value,
-    //   perPage: perPage.value,
-    //   search: searchQuery.value
-    // });
+    serviceStore.loading = true;
     
-    // For now, simulate server-side filtering and pagination
-    await simulateServerRequest();
+    const params = {
+      page: currentPage.value,
+      limit: perPage.value,
+      ...(searchQuery.value && { search: searchQuery.value })
+    };
+    
+    const response = await serviceAPI.getServices(params);
+    
+    // Update store and pagination data
+    serviceStore.services = response.data?.services || response.services || [];
+    totalItems.value = response.data?.total || response.total || 0;
     
   } catch (error) {
     console.error('Error loading services:', error);
-    serviceStore.error = 'Failed to load services';
+    const errorInfo = apiUtils.handleError(error);
+    
+    // For development fallback with dummy data
+    if (errorInfo.status === 0) {
+      console.warn('API not available, using dummy data');
+      await simulateServerRequest();
+    } else {
+      await swalUtils.error(
+        'Gagal Memuat Data!',
+        'Tidak dapat memuat data service dari server'
+      );
+    }
   } finally {
     serviceStore.loading = false;
   }
@@ -250,22 +299,97 @@ const simulateServerRequest = async () => {
     setTimeout(() => {
       // Get all services (this would come from server)
       const allServices = [
-        { id: 's1', name: 'Cuci Kering Lipat', price: 8000, unit: 'kg' },
-        { id: 's2', name: 'Cuci Setrika', price: 12000, unit: 'kg' },
-        { id: 's3', name: 'Kemeja Satuan', price: 15000, unit: 'pcs' },
-        { id: 's4', name: 'Selimut', price: 25000, unit: 'pcs' },
-        { id: 's5', name: 'Dry Clean', price: 50000, unit: 'pcs' },
-        { id: 's6', name: 'Cuci Sepatu', price: 30000, unit: 'pcs' },
-        { id: 's7', name: 'Cuci Tas', price: 20000, unit: 'pcs' },
-        { id: 's8', name: 'Express 3 Jam', price: 15000, unit: 'kg' },
+        { 
+          id: 's1', 
+          name: 'Cuci+ Gosok', 
+          description: 'Layanan cuci dan gosok premium dengan kualitas terbaik',
+          price: 4500, 
+          unit: 'kg', 
+          category: 'regular',
+          icon: 'wash-iron',
+          is_active: true
+        },
+        { 
+          id: 's2', 
+          name: 'Cuci Setrika Premium', 
+          description: 'Layanan cuci dan setrika untuk pakaian formal',
+          price: 12000, 
+          unit: 'kg', 
+          category: 'premium',
+          icon: 'shirt',
+          is_active: true
+        },
+        { 
+          id: 's3', 
+          name: 'Kemeja Satuan', 
+          description: 'Layanan khusus kemeja dengan penanganan ekstra hati-hati',
+          price: 15000, 
+          unit: 'pcs', 
+          category: 'specialty',
+          icon: 'tshirt',
+          is_active: true
+        },
+        { 
+          id: 's4', 
+          name: 'Selimut & Bedcover', 
+          description: 'Layanan cuci untuk selimut dan bedcover berukuran besar',
+          price: 25000, 
+          unit: 'pcs', 
+          category: 'large-items',
+          icon: 'bed',
+          is_active: true
+        },
+        { 
+          id: 's5', 
+          name: 'Dry Clean Premium', 
+          description: 'Layanan dry cleaning untuk pakaian berbahan khusus',
+          price: 50000, 
+          unit: 'pcs', 
+          category: 'premium',
+          icon: 'sparkles',
+          is_active: true
+        },
+        { 
+          id: 's6', 
+          name: 'Cuci Sepatu', 
+          description: 'Layanan cuci sepatu dengan treatment khusus',
+          price: 30000, 
+          unit: 'pcs', 
+          category: 'specialty',
+          icon: 'shoe-prints',
+          is_active: true
+        },
+        { 
+          id: 's7', 
+          name: 'Cuci Tas & Ransel', 
+          description: 'Layanan cuci untuk tas, ransel, dan aksesoris',
+          price: 20000, 
+          unit: 'pcs', 
+          category: 'specialty',
+          icon: 'shopping-bag',
+          is_active: true
+        },
+        { 
+          id: 's8', 
+          name: 'Express 3 Jam', 
+          description: 'Layanan kilat selesai dalam 3 jam',
+          price: 15000, 
+          unit: 'kg', 
+          category: 'express',
+          icon: 'clock',
+          is_active: true
+        },
       ];
       
       // Filter based on search query
       let filteredServices = allServices;
       if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
         filteredServices = allServices.filter(service =>
-          service.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-          service.unit.toLowerCase().includes(searchQuery.value.toLowerCase())
+          service.name.toLowerCase().includes(query) ||
+          service.unit.toLowerCase().includes(query) ||
+          service.category?.toLowerCase().includes(query) ||
+          service.description?.toLowerCase().includes(query)
         );
       }
       
@@ -283,6 +407,55 @@ const simulateServerRequest = async () => {
     }, 500); // Simulate network delay
   });
 };
+
+// Test API function (for development)
+const testCreateService = async () => {
+  const testService = {
+    name: "Cuci+ Gosok",
+    description: "Layanan cuci dan gosok premium dengan kualitas terbaik",
+    price: 4500,
+    unit: "kg", 
+    category: "regular",
+    icon: "wash-iron",
+    is_active: true
+  };
+  
+  try {
+    console.log('Testing service creation API...');
+    const result = await serviceAPI.createService(testService);
+    console.log('API Test Result:', result);
+    await swalUtils.toast.success('Test API berhasil! 🎉');
+    await loadServices();
+  } catch (error) {
+    console.error('API Test Error:', error);
+    const errorInfo = apiUtils.handleError(error);
+    await swalUtils.error('Test API Gagal!', errorInfo.message);
+  }
+};
+
+// Debug function to test API connectivity
+const testAPIConnection = async () => {
+  try {
+    console.log('Testing API connection to:', import.meta.env.VITE_API_URL);
+    
+    // Test getting services first
+    const response = await serviceAPI.getServices({ page: 1, limit: 5 });
+    console.log('API Connection Success:', response);
+    await swalUtils.toast.success('API Connection successful! 🎉');
+    
+  } catch (error) {
+    console.error('API Connection Error:', error);
+    const errorInfo = apiUtils.handleError(error);
+    await swalUtils.error('API Connection Failed!', 
+      `Cannot connect to ${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}. Error: ${errorInfo.message}`
+    );
+  }
+};
+
+// Expose test functions to window for debugging
+window.testCreateService = testCreateService;
+window.testAPIConnection = testAPIConnection;
+window.serviceAPI = serviceAPI;  // For manual testing in console
 
 // Load initial data
 onMounted(() => {

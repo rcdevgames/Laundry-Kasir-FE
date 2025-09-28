@@ -55,7 +55,7 @@
             <div :class="getStatusBadgeClass(transaction.currentStatus)" class="px-3 py-1 rounded-full text-xs font-semibold">
               {{ getStatusLabel(transaction.currentStatus) }}
             </div>
-            <p class="text-xs text-gray-500 mt-1">{{ formatTime(transaction.createdAt) }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ formatTime(transaction.created_at) }}</p>
           </div>
         </div>
 
@@ -76,8 +76,8 @@
 
         <!-- Items Summary -->
         <div class="flex items-center justify-between text-sm">
-          <span class="text-gray-600">{{ transaction.items.length }} item(s)</span>
-          <span class="font-semibold text-indigo-600">Rp {{ transaction.totalAmount.toLocaleString() }}</span>
+          <span class="text-gray-600">{{ transaction.items?.length || 0 }} item(s)</span>
+          <span class="font-semibold text-indigo-600">Rp {{ (transaction.totalAmount || 0).toLocaleString() }}</span>
         </div>
 
         <!-- Estimated Time -->
@@ -518,43 +518,60 @@ const getProgressEntry = (status) => {
 };
 
 const updateProgress = async (newStatus) => {
-  showNotesInput.value = true;
-  
-  // For check stage, show special form
+  // For check stage, use the checkFindings form data
   if (newStatus === 'check') {
-    // The checkFindings form is already visible
+    if (!checkFindings.value.notes && !checkFindings.value.money && !checkFindings.value.receipts &&
+        !checkFindings.value.damage && !checkFindings.value.stains) {
+      alert('Please fill in the check findings or add notes before proceeding.');
+      return;
+    }
+
+    const progressData = {
+      status: newStatus,
+      notes: checkFindings.value.notes || 'Items checked - no special findings',
+      checkedBy: 'Current User', // TODO: Get from auth store
+      metadata: JSON.stringify(checkFindings.value)
+    };
+
+    try {
+      await transactionStore.updateTransactionStatus(selectedTransaction.value.id, progressData);
+      await transactionStore.updateTransactionProgress(selectedTransaction.value.id, progressData);
+      await refreshData();
+
+      resetProgressForm();
+      showNotesInput.value = false;
+    } catch (error) {
+      console.error('Failed to update progress:', error);
+      // TODO: Show error toast
+    }
     return;
   }
-  
+
+  // For other stages, show notes input if not already shown
+  if (!showNotesInput.value) {
+    showNotesInput.value = true;
+    return;
+  }
+
+  // Validate notes for other stages
+  if (!progressNotes.value.trim()) {
+    alert('Please add notes before proceeding.');
+    return;
+  }
+
   // For other stages, proceed with update
   const progressData = {
     status: newStatus,
     notes: progressNotes.value,
     checkedBy: 'Current User', // TODO: Get from auth store
   };
-  
-  if (newStatus === 'check') {
-    progressData.metadata = JSON.stringify(checkFindings.value);
-  }
-  
+
   try {
+    await transactionStore.updateTransactionStatus(selectedTransaction.value.id, progressData);
     await transactionStore.updateTransactionProgress(selectedTransaction.value.id, progressData);
-    
-    // Update local state
-    selectedTransaction.value.currentStatus = newStatus;
-    if (!selectedTransaction.value.progress) {
-      selectedTransaction.value.progress = [];
-    }
-    selectedTransaction.value.progress.push({
-      status: newStatus,
-      notes: progressNotes.value,
-      checkedBy: 'Current User',
-      timestamp: new Date(),
-      metadata: newStatus === 'check' ? JSON.stringify(checkFindings.value) : null
-    });
-    
+    await refreshData();
+
     resetProgressForm();
-    
     // Auto-close modal after delivery
     if (newStatus === 'delivered') {
       setTimeout(() => {
@@ -597,21 +614,10 @@ const quickUpdateProgress = async (transaction, newStatus) => {
       notes: `Quick update to ${newStatus}`,
       checkedBy: 'Current User'
     };
-    
+
+    await transactionStore.updateTransactionStatus(transaction.id, progressData);
     await transactionStore.updateTransactionProgress(transaction.id, progressData);
-    
-    // Update local state
-    transaction.currentStatus = newStatus;
-    if (!transaction.progress) {
-      transaction.progress = [];
-    }
-    transaction.progress.push({
-      status: newStatus,
-      notes: progressData.notes,
-      checkedBy: 'Current User',
-      timestamp: new Date()
-    });
-    
+    await refreshData();
   } catch (error) {
     console.error('Failed to update progress:', error);
   }
@@ -629,39 +635,23 @@ const closeCompletionModal = () => {
 
 const completeOrder = async (completionType) => {
   if (!selectedTransaction.value) return;
-  
+
   try {
-    const completionNotes = completionType === 'pickup' 
+    const completionNotes = completionType === 'pickup'
       ? 'Order picked up by customer'
       : 'Order delivered to customer address';
-    
+
     const progressData = {
       status: 'completed',
       notes: completionNotes,
       checkedBy: 'Current User',
       completionType: completionType
     };
-    
+
+    await transactionStore.updateTransactionStatus(selectedTransaction.value.id, progressData);
     await transactionStore.updateTransactionProgress(selectedTransaction.value.id, progressData);
-    
-    // Update local state
-    selectedTransaction.value.currentStatus = 'completed';
-    selectedTransaction.value.completionType = completionType;
-    selectedTransaction.value.completedAt = new Date();
-    
-    if (!selectedTransaction.value.progress) {
-      selectedTransaction.value.progress = [];
-    }
-    selectedTransaction.value.progress.push({
-      status: 'completed',
-      notes: completionNotes,
-      checkedBy: 'Current User',
-      timestamp: new Date(),
-      completionType: completionType
-    });
-    
+    await refreshData();
     closeCompletionModal();
-    
   } catch (error) {
     console.error('Failed to complete order:', error);
   }

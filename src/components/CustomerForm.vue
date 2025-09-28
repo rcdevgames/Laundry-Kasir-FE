@@ -36,34 +36,60 @@
         <form @submit.prevent="handleSubmit">
           <!-- Name Input -->
           <div class="mb-5">
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+              Name <span class="text-red-500">*</span>
+            </label>
             <input
               v-model="form.name"
               id="name"
               type="text"
-              required
-              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              :class="getInputClass('name')"
               placeholder="Enter customer name"
+              @blur="markTouched('name')"
+              @input="validateField('name')"
             />
+            <p v-if="errors.name" class="mt-1.5 text-xs text-red-600 flex items-center">
+              <FontAwesomeIcon icon="exclamation-circle" class="h-4 w-4 mr-1" />
+              {{ errors.name }}
+            </p>
           </div>
 
           <!-- Phone Input -->
           <div class="mb-5">
-            <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+            <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+              Phone Number <span class="text-red-500">*</span>
+            </label>
             <input
               v-model="form.phone"
               id="phone"
               type="tel"
-              required
-              pattern="[0-9]{10,15}"
-              title="Phone number must be 10 to 15 digits."
-              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              placeholder="Enter phone number"
+              :class="getInputClass('phone')"
+              placeholder="Enter phone number (10-15 digits)"
+              @blur="markTouched('phone')"
+              @input="validateField('phone')"
             />
-             <p v-if="phoneError" class="mt-1.5 text-xs text-red-600 flex items-center">
-               <FontAwesomeIcon icon="exclamation-circle" class="h-4 w-4 mr-1" />
-               {{ phoneError }}
-             </p>
+            <p v-if="errors.phone" class="mt-1.5 text-xs text-red-600 flex items-center">
+              <FontAwesomeIcon icon="exclamation-circle" class="h-4 w-4 mr-1" />
+              {{ errors.phone }}
+            </p>
+          </div>
+
+          <!-- Email Input -->
+          <div class="mb-5">
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input
+              v-model="form.email"
+              id="email"
+              type="email"
+              :class="getInputClass('email')"
+              placeholder="Enter email address (optional)"
+              @blur="markTouched('email')"
+              @input="validateField('email')"
+            />
+            <p v-if="errors.email" class="mt-1.5 text-xs text-red-600 flex items-center">
+              <FontAwesomeIcon icon="exclamation-circle" class="h-4 w-4 mr-1" />
+              {{ errors.email }}
+            </p>
           </div>
 
           <!-- Address Input -->
@@ -73,10 +99,16 @@
               v-model="form.address"
               id="address"
               rows="3"
-              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+              :class="getInputClass('address')"
               placeholder="Enter customer address (optional)"
+              @blur="markTouched('address')"
+              @input="validateField('address')"
             ></textarea>
-            <p class="mt-1.5 text-xs text-gray-500">This will help with delivery if needed</p>
+            <p v-if="errors.address" class="mt-1.5 text-xs text-red-600 flex items-center">
+              <FontAwesomeIcon icon="exclamation-circle" class="h-4 w-4 mr-1" />
+              {{ errors.address }}
+            </p>
+            <p v-else class="mt-1.5 text-xs text-gray-500">This will help with delivery if needed</p>
           </div>
 
           <!-- Action Buttons -->
@@ -84,16 +116,31 @@
             <button 
               type="button" 
               @click="close" 
-              class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors duration-200"
+              :disabled="isSubmitting"
+              class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button 
               type="submit" 
-              class="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors duration-200 flex items-center justify-center"
+              :disabled="isSubmitting"
+              class="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors duration-200 flex items-center justify-center disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              <FontAwesomeIcon :icon="isEditMode ? 'edit' : 'plus'" class="h-4 w-4 mr-1" />
-              {{ isEditMode ? 'Update Customer' : 'Save Customer' }}
+              <FontAwesomeIcon 
+                v-if="!isSubmitting" 
+                :icon="isEditMode ? 'edit' : 'plus'" 
+                class="h-4 w-4 mr-1" 
+              />
+              <svg 
+                v-else 
+                class="animate-spin h-4 w-4 mr-1" 
+                fill="none" 
+                viewBox="0 0 24 24"
+              >
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isSubmitting ? 'Saving...' : (isEditMode ? 'Update Customer' : 'Save Customer') }}
             </button>
           </div>
         </form>
@@ -105,6 +152,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
+import { validateForm, sanitizeFormData, getFieldClass } from '../utils/validation.js';
 
 const props = defineProps({
   visible: Boolean,
@@ -113,48 +161,113 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'save']);
 
-const form = ref({ id: null, name: '', phone: '', address: '' });
-const phoneError = ref('');
+const form = ref({ 
+  id: null, 
+  name: '', 
+  phone: '', 
+  email: '', 
+  address: '' 
+});
+const errors = ref({});
+const touched = ref({});
+const isSubmitting = ref(false);
 
-const isEditMode = computed(() => !!props.customer);
+const isEditMode = computed(() => !!props.customer && !!props.customer.id);
+const schemaName = computed(() => isEditMode.value ? 'updateCustomer' : 'createCustomer');
+
+// Validation helpers
+const getInputClass = (fieldName) => getFieldClass(fieldName, errors.value, touched.value);
+
+const markTouched = (fieldName) => {
+  touched.value[fieldName] = true;
+  validateField(fieldName);
+};
+
+const validateField = (fieldName) => {
+  const tempData = { [fieldName]: form.value[fieldName] };
+  const validation = validateForm(tempData, schemaName.value);
+  
+  if (validation.errors[fieldName]) {
+    errors.value[fieldName] = validation.errors[fieldName];
+  } else {
+    delete errors.value[fieldName];
+  }
+};
+
+const validateAllFields = () => {
+  const validation = validateForm(form.value, schemaName.value);
+  errors.value = validation.errors;
+  
+  // Mark all fields as touched
+  Object.keys(form.value).forEach(key => {
+    touched.value[key] = true;
+  });
+  
+  return validation.isValid;
+};
 
 watch(() => props.customer, (newVal) => {
   if (newVal) {
-    form.value = { ...newVal };
-    // Ensure address field exists for backward compatibility
-    if (!form.value.address) {
-      form.value.address = '';
-    }
+    console.log('CustomerForm: Setting form with customer data:', newVal);
+    form.value = { 
+      id: newVal.id || null,
+      name: newVal.name || '',
+      phone: newVal.phone || '',
+      email: newVal.email || '',
+      address: newVal.address || ''
+    };
   } else {
-    form.value = { id: null, name: '', phone: '', address: '' };
+    console.log('CustomerForm: Resetting form for new customer');
+    resetForm();
   }
 });
 
 watch(() => props.visible, (newVal) => {
   if (!newVal) {
-    // Reset form and errors when modal is closed
-    form.value = { id: null, name: '', phone: '', address: '' };
-    phoneError.value = '';
+    resetForm();
   }
 });
 
-const validatePhone = (phone) => {
-  const phoneRegex = /^[0-9]{10,15}$/;
-  return phoneRegex.test(phone);
-}
+const resetForm = () => {
+  form.value = { 
+    id: null, 
+    name: '', 
+    phone: '', 
+    email: '', 
+    address: '' 
+  };
+  errors.value = {};
+  touched.value = {};
+  isSubmitting.value = false;
+};
 
-const handleSubmit = () => {
-  if (!validatePhone(form.value.phone)) {
-    phoneError.value = 'Phone number must be 10 to 15 digits and contain only numbers.';
-    return;
+const handleSubmit = async () => {
+  if (isSubmitting.value) return;
+  
+  isSubmitting.value = true;
+  
+  try {
+    if (!validateAllFields()) {
+      isSubmitting.value = false;
+      return;
+    }
+
+    // Sanitize form data according to schema (ID is automatically preserved)
+    const sanitizedData = sanitizeFormData(form.value, schemaName.value);
+    console.log('CustomerForm: Form data before sanitize:', form.value);
+    console.log('CustomerForm: Sanitized data being sent:', sanitizedData);
+    console.log('CustomerForm: Is edit mode:', isEditMode.value);
+    
+    emit('save', sanitizedData);
+    close();
+  } catch (error) {
+    console.error('Form submission error:', error);
+  } finally {
+    isSubmitting.value = false;
   }
-  phoneError.value = '';
-  emit('save', form.value);
-  close();
 };
 
 const close = () => {
-  // Add a small delay to let the animation finish
   setTimeout(() => {
     emit('close');
   }, 0);

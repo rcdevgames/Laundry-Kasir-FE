@@ -17,42 +17,42 @@
           <div>
             <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
             <input
-              v-model="username"
+              v-model="form.username"
               id="username"
               name="username"
               type="text"
-              required
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              :class="[getInputClass('username'), 'w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 text-sm']"
               placeholder="Enter your username"
+              @blur="markTouched('username')"
+              @input="validateField('username')"
             />
+            <p v-if="errors.username" class="mt-2 text-xs text-red-600 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+              {{ errors.username }}
+            </p>
           </div>
           <div>
             <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
             <input
-              v-model="password"
+              v-model="form.password"
               id="password"
               name="password"
               type="password"
-              required
-              minlength="5"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              :class="[getInputClass('password'), 'w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 text-sm']"
               placeholder="Enter your password"
+              @blur="markTouched('password')"
+              @input="validateField('password')"
             />
-             <p v-if="passwordError" class="mt-2 text-xs text-red-600 flex items-center">
-               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-               </svg>
-               {{ passwordError }}
-             </p>
-          </div>
-          <div v-if="authStore.error" class="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
-            <div class="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <p v-if="errors.password" class="mt-2 text-xs text-red-600 flex items-center">
+              <svg xmlns="http://www.w3.gov/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
               </svg>
-              {{ authStore.error }}
-            </div>
+              {{ errors.password }}
+            </p>
           </div>
+
           <div>
             <button
               type="submit"
@@ -64,6 +64,17 @@
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               {{ authStore.loading ? 'Signing in...' : 'Sign in' }}
+            </button>
+          </div>
+          
+          <!-- Forgot Password Link -->
+          <div class="text-center mt-4">
+            <button
+              type="button"
+              @click="showForgotPassword"
+              class="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200"
+            >
+              Lupa password?
             </button>
           </div>
         </form>
@@ -79,12 +90,48 @@
 import { ref, watch, onMounted } from 'vue';
 import { useAuthStore } from '../store/auth';
 import { useRouter } from 'vue-router';
+import { swalUtils } from '../utils/swal.js';
+import { validateForm, getFieldClass } from '../utils/validation.js';
 
-const username = ref('');
-const password = ref('');
-const passwordError = ref('');
+const form = ref({
+  username: '',
+  password: ''
+});
+const errors = ref({});
+const touched = ref({});
 const authStore = useAuthStore();
 const router = useRouter();
+
+// Validation helpers
+const getInputClass = (fieldName) => getFieldClass(fieldName, errors.value, touched.value);
+
+const markTouched = (fieldName) => {
+  touched.value[fieldName] = true;
+  validateField(fieldName);
+};
+
+const validateField = (fieldName) => {
+  const tempData = { [fieldName]: form.value[fieldName] };
+  const validation = validateForm(tempData, 'login');
+  
+  if (validation.errors[fieldName]) {
+    errors.value[fieldName] = validation.errors[fieldName];
+  } else {
+    delete errors.value[fieldName];
+  }
+};
+
+const validateAllFields = () => {
+  const validation = validateForm(form.value, 'login');
+  errors.value = validation.errors;
+  
+  // Mark all fields as touched
+  Object.keys(form.value).forEach(key => {
+    touched.value[key] = true;
+  });
+  
+  return validation.isValid;
+};
 
 // Redirect to dashboard if already authenticated
 onMounted(() => {
@@ -93,23 +140,69 @@ onMounted(() => {
   }
 });
 
-watch(password, (newValue) => {
-  if (newValue && newValue.length < 5) {
-    passwordError.value = 'Password must be at least 5 characters long.';
+// Clear auth error when component mounts (since we use SweetAlert2 now)
+onMounted(() => {
+  authStore.error = null;
+});
+
+// Add some interactive features
+const showForgotPassword = () => {
+  swalUtils.info(
+    'Lupa Password?',
+    'Silakan hubungi administrator untuk reset password Anda.',
+    {
+      confirmButtonText: 'Mengerti'
+    }
+  );
+};
+
+// Show loading during login
+watch(() => authStore.loading, (isLoading) => {
+  if (isLoading) {
+    swalUtils.loading('Memproses Login...', 'Mohon tunggu sebentar');
   } else {
-    passwordError.value = '';
+    swalUtils.close();
   }
 });
 
 const handleLogin = async () => {
-  if (password.value.length >= 5) {
-    // Call the auth store login method which handles the fake API
-    await authStore.login({
-      username: username.value,
-      password: password.value,
+  try {
+    if (!validateAllFields()) {
+      swalUtils.warning(
+        'Input Tidak Valid!',
+        'Silakan periksa kembali username dan password Anda'
+      );
+      return;
+    }
+
+    // Call the auth store login method which handles the real API
+    const result = await authStore.login({
+      username: form.value.username,
+      password: form.value.password,
     });
-  } else {
-    passwordError.value = 'Password must be at least 5 characters long.';
+    
+    // Handle successful login
+    if (result && result.success) {
+      // Clear form
+      form.value = { username: '', password: '' };
+      errors.value = {};
+      touched.value = {};
+      
+      // Show success toast
+      swalUtils.toast.success('Login berhasil! Selamat datang kembali 🎉');
+    } else {
+      // Show error alert
+      swalUtils.error(
+        'Login Gagal!',
+        authStore.error || 'Username atau password salah. Silakan coba lagi.'
+      );
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    swalUtils.error(
+      'Terjadi Kesalahan!',
+      'Gagal terhubung ke server. Periksa koneksi internet Anda.'
+    );
   }
 };
 </script>

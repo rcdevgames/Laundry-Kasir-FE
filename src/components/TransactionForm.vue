@@ -127,6 +127,97 @@
       </div>
     </div>
 
+    <!-- Receipt Modal -->
+    <div v-if="showReceiptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeReceiptModal">
+      <div class="bg-white rounded-xl max-w-md mx-4 w-full max-h-[90vh] overflow-hidden" @click.stop>
+        <!-- Receipt Header -->
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
+          <div class="flex justify-between items-center">
+            <h2 class="text-lg font-bold">Transaction Receipt</h2>
+            <button @click="closeReceiptModal" class="text-white hover:text-gray-200">
+              <FontAwesomeIcon icon="times" class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Receipt Content (Scrollable) -->
+        <div class="p-4 max-h-96 overflow-y-auto" id="receipt-content">
+          <!-- Store Info -->
+          <div class="text-center mb-4 pb-4 border-b border-gray-200">
+            <h3 class="text-lg font-bold text-gray-800">WAW Laundry</h3>
+            <p class="text-sm text-gray-600">Jl. Contoh No. 123, Jakarta</p>
+            <p class="text-sm text-gray-600">Telp: (021) 123-4567</p>
+            <p class="text-xs text-gray-500 mt-1">{{ formatDate(receiptData?.created_at || new Date()) }}</p>
+          </div>
+
+          <!-- Transaction Info -->
+          <div class="mb-4 pb-4 border-b border-gray-200">
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-medium">Transaction #:</span>
+              <span>{{ receiptData?.transaction_no || receiptData?.transactionNo }}</span>
+            </div>
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-medium">Customer:</span>
+              <span>{{ receiptData?.customer?.name || 'N/A' }}</span>
+            </div>
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-medium">Phone:</span>
+              <span>{{ receiptData?.customer?.phone || 'N/A' }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="font-medium">Payment:</span>
+              <span class="capitalize">{{ receiptData?.payment_method || 'Cash' }}</span>
+            </div>
+          </div>
+
+          <!-- Items -->
+          <div class="mb-4">
+            <h4 class="font-bold text-sm mb-3 text-gray-800">Items:</h4>
+            <div class="space-y-2">
+              <div v-for="item in receiptData?.items" :key="item.service_id" class="flex justify-between text-sm py-1">
+                <div class="flex-1">
+                  <span class="font-medium">{{ item.service_name || item.name }}</span>
+                  <span class="text-gray-600 ml-2">x{{ item.quantity }}</span>
+                </div>
+                <span class="font-medium">Rp {{ formatPrice(item.total_price || item.subtotal) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="border-t border-gray-300 pt-4 mb-4">
+            <div class="flex justify-between text-lg font-bold">
+              <span>Total:</span>
+              <span class="text-indigo-600">Rp {{ formatPrice(receiptData?.total_amount || 0) }}</span>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
+            <p>Thank you for your business!</p>
+            <p>Please keep this receipt for your records.</p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="p-4 border-t border-gray-200 flex space-x-3">
+          <button
+            @click="closeReceiptModal"
+            class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors duration-200"
+          >
+            Close
+          </button>
+          <button
+            @click="printReceipt"
+            class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors duration-200 flex items-center justify-center"
+          >
+            <FontAwesomeIcon icon="print" class="h-4 w-4 mr-2" />
+            Print Receipt
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Payment Method -->
     <div class="mb-6">
       <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
@@ -188,15 +279,24 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useTransactionStore } from '../store/transaction';
+import { useCustomerStore } from '../store/customer';
+import { useServiceStore } from '../store/service';
+import Swal from 'sweetalert2';
 
 const transactionStore = useTransactionStore();
+const customerStore = useCustomerStore();
+const serviceStore = useServiceStore();
 
 // Service grid functionality
 const searchQuery = ref('');
 const selectedService = ref(null);
 const modalQuantity = ref(1);
+
+// Receipt modal functionality
+const showReceiptModal = ref(false);
+const receiptData = ref(null);
 
 // Filtered services based on search
 const filteredServices = computed(() => {
@@ -251,7 +351,150 @@ const decreaseQuantity = () => {
   }
 };
 
-const processPayment = () => {
-  transactionStore.processPayment();
+// Data initialization is handled by parent TransactionPage component
+
+const processPayment = async () => {
+  try {
+    const result = await transactionStore.processPayment();
+
+    if (result.success) {
+      // Show receipt modal instead of simple success notification
+      receiptData.value = result.data;
+      showReceiptModal.value = true;
+    } else {
+      // Error notification
+      await Swal.fire({
+        icon: 'error',
+        title: 'Transaction Failed',
+        text: result.error?.message || 'Failed to process payment. Please try again.',
+        confirmButtonColor: '#6366f1'
+      });
+    }
+  } catch (error) {
+    console.error('Payment processing error:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Unexpected Error',
+      text: 'An unexpected error occurred. Please try again.',
+      confirmButtonColor: '#6366f1'
+    });
+  }
 };
+
+// Receipt modal methods
+const closeReceiptModal = () => {
+  showReceiptModal.value = false;
+  receiptData.value = null;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('id-ID', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
+const formatPrice = (price) => {
+  if (price === null || price === undefined) return '0';
+  return parseFloat(price).toLocaleString('id-ID');
+};
+
+const printReceipt = () => {
+  const printContent = generateThermalReceiptContent();
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+  printWindow.print();
+  printWindow.close();
+};
+
+const generateThermalReceiptContent = () => {
+  const data = receiptData.value;
+  const is58mm = window.innerWidth < 768; // Use 58mm for mobile, 80mm for desktop
+
+  const width = is58mm ? '58mm' : '80mm';
+  const fontSize = is58mm ? '12px' : '14px';
+  const lineHeight = is58mm ? '1.2' : '1.4';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Receipt</title>
+      <style>
+        @media print {
+          @page {
+            size: ${width} auto;
+            margin: 0;
+          }
+          body {
+            margin: 0;
+            padding: 5mm;
+          }
+        }
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: ${fontSize};
+          line-height: ${lineHeight};
+          margin: 0;
+          padding: 10px;
+          width: ${width};
+          box-sizing: border-box;
+          color: #000;
+          background: #fff;
+        }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .left { text-align: left; }
+        .bold { font-weight: bold; }
+        .border-bottom { border-bottom: 1px dashed #000; padding-bottom: 2px; margin-bottom: 2px; }
+        .total { font-weight: bold; font-size: ${is58mm ? '14px' : '16px'}; }
+        .header { font-size: ${is58mm ? '16px' : '18px'}; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <div class="center header">WAW LAUNDRY</div>
+      <div class="center">Jl. Contoh No. 123, Jakarta</div>
+      <div class="center">Telp: (021) 123-4567</div>
+      <div class="center border-bottom">${formatDate(data?.created_at || new Date())}</div>
+
+      <div class="border-bottom">
+        <div><span class="bold">No. Transaksi:</span> ${data?.transaction_no || data?.transactionNo}</div>
+        <div><span class="bold">Customer:</span> ${data?.customer?.name || 'N/A'}</div>
+        <div><span class="bold">Phone:</span> ${data?.customer?.phone || 'N/A'}</div>
+        <div><span class="bold">Payment:</span> ${data?.payment_method?.toUpperCase() || 'CASH'}</div>
+      </div>
+
+      <div class="border-bottom">
+        <div class="bold">--- ITEMS ---</div>
+        ${data?.items?.map(item => `
+          <div>${item.service_name || item.name}</div>
+          <div>${item.quantity} x Rp ${formatPrice(item.price || 0)} = Rp ${formatPrice(item.total_price || item.subtotal)}</div>
+        `).join('') || ''}
+      </div>
+
+      <div class="border-bottom">
+        <div class="right total">TOTAL: Rp ${formatPrice(data?.total_amount || 0)}</div>
+      </div>
+
+      <div class="center">Thank you for your business!</div>
+      <div class="center">Please keep this receipt</div>
+      <div class="center">for your records.</div>
+
+      <div style="margin-top: 10px; text-align: center; font-size: 10px; color: #666;">
+        Powered by WAW Laundry System
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// Data initialization is handled by parent component (TransactionPage)
 </script>

@@ -1,49 +1,118 @@
 import { defineStore } from 'pinia';
-
-// Helper function to simulate unique ID generation
-const generateId = () => Math.random().toString(36).substr(2, 9);
+import { customerAPI, apiUtils } from '../services/index.js';
 
 export const useCustomerStore = defineStore('customer', {
   state: () => ({
-    // Sample data to simulate a backend
-    customers: [
-      { id: 'c1', name: 'John Doe', phone: '081234567890', address: 'Jl. Merdeka No. 123, Jakarta' },
-      { id: 'c2', name: 'Jane Smith', phone: '089876543210', address: 'Jl. Sudirman No. 456, Bandung' },
-      { id: 'c3', name: 'Peter Jones', phone: '081122334455', address: 'Jl. Thamrin No. 789, Surabaya' },
-    ],
+    customers: [],
     error: null,
     loading: false,
   }),
   actions: {
-    addCustomer(customer) {
+    // Fetch customers from API
+    async fetchCustomers(params = {}) {
+      this.loading = true;
       this.error = null;
-      // Basic validation
-      if (!customer.name || !customer.phone) {
-        this.error = 'Name and phone number are required.';
-        return;
-      }
-      if (this.customers.some(c => c.phone === customer.phone)) {
-        this.error = 'Phone number must be unique.';
-        return;
-      }
       
-      const newCustomer = { id: generateId(), ...customer };
-      this.customers.push(newCustomer);
-    },
-    updateCustomer(updatedCustomer) {
-      this.error = null;
-      const index = this.customers.findIndex(c => c.id === updatedCustomer.id);
-      if (index !== -1) {
-        // Check for unique phone number, excluding the current customer
-        if (this.customers.some(c => c.phone === updatedCustomer.phone && c.id !== updatedCustomer.id)) {
-          this.error = 'Phone number must be unique.';
-          return;
-        }
-        this.customers[index] = updatedCustomer;
+      try {
+        const response = await customerAPI.getCustomers(params);
+        this.customers = response.data?.customers || response.customers || [];
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
       }
     },
-    deleteCustomer(customerId) {
-      this.customers = this.customers.filter(c => c.id !== customerId);
+
+    // Add new customer via API
+    async addCustomer(customerData) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const response = await customerAPI.createCustomer(customerData);
+        const newCustomer = response.data?.customer || response.customer;
+        
+        if (newCustomer) {
+          this.customers.unshift(newCustomer);
+        }
+        
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
     },
+
+    // Update customer via API
+    async updateCustomer(id, customerData) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const response = await customerAPI.updateCustomer(id, customerData);
+        const updatedCustomer = response.data?.customer || response.customer;
+        
+        if (updatedCustomer) {
+          const index = this.customers.findIndex(c => c.id === id);
+          if (index !== -1) {
+            this.customers[index] = updatedCustomer;
+          }
+        }
+        
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Delete customer via API
+    async deleteCustomer(id) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        await customerAPI.deleteCustomer(id);
+        this.customers = this.customers.filter(c => c.id !== id);
+        return { success: true };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Get customer by ID
+    async getCustomer(id) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const response = await customerAPI.getCustomer(id);
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Clear error
+    clearError() {
+      this.error = null;
+    }
   },
 });

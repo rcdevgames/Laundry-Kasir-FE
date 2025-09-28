@@ -112,13 +112,7 @@
       @save="handleSave"
     />
 
-    <ConfirmationModal
-      :visible="isDeleteModalVisible"
-      :title="'Delete Customer'"
-      :message="`Are you sure you want to delete '${customerToDelete?.name}'? This action cannot be undone.`"
-      @confirm="confirmDelete"
-      @cancel="cancelDelete"
-    />
+
     
     <!-- Global Error/Notification Display -->
     <div v-if="customerStore.error" class="mt-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
@@ -133,6 +127,8 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useCustomerStore } from '../store/customer';
+import { customerAPI, apiUtils } from '../services/index.js';
+import { swalUtils } from '../utils/swal.js';
 import DataTable from '../components/DataTable.vue';
 import CustomerForm from '../components/CustomerForm.vue';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
@@ -149,9 +145,7 @@ const customerColumns = [
   { key: 'address', label: 'Address' }
 ];
 
-// Delete confirmation modal state
-const isDeleteModalVisible = ref(false);
-const customerToDelete = ref(null);
+
 
 // Pagination and search state
 const searchQuery = ref('');
@@ -168,6 +162,7 @@ const openAddModal = () => {
 };
 
 const openEditModal = (customer) => {
+  console.log(customer);
   selectedCustomer.value = customer;
   isModalVisible.value = true;
 };
@@ -183,53 +178,75 @@ const closeModal = () => {
 
 const handleSave = async (customer) => {
   try {
+    customerStore.loading = true;
+    let result;
+    console.log('Saving customer:', customer);
+    
     if (customer.id) {
-      // Update existing customer
-      customerStore.updateCustomer(customer);
-      window.toast?.success('Customer Updated', `${customer.name} has been updated successfully`);
+      // Update existing customer - exclude ID from the payload body
+      const { id, ...updateData } = customer;
+      result = await customerAPI.updateCustomer(id, updateData);
+      await swalUtils.toast.success(`${customer.name} berhasil diperbarui! ✨`);
     } else {
-      // Add new customer
-      customerStore.addCustomer(customer);
-      window.toast?.success('Customer Added', `${customer.name} has been added successfully`);
+      // Add new customer - exclude ID field entirely
+      const { id, ...createData } = customer;
+      result = await customerAPI.createCustomer(createData);
+      await swalUtils.toast.success(`${customer.name} berhasil ditambahkan! 🎉`);
     }
     
-    // If there was no error, close the modal and reload data
-    if (!customerStore.error) {
-      closeModal();
-      await loadCustomers(); // Reload data from server
-    }
+    closeModal();
+    await loadCustomers(); // Reload data from server
+    
   } catch (error) {
     console.error('Error saving customer:', error);
-    customerStore.error = 'Failed to save customer';
-    window.toast?.error('Error', 'Failed to save customer');
+    const errorInfo = apiUtils.handleError(error);
+    
+    await swalUtils.error(
+      'Gagal Menyimpan Data!',
+      errorInfo.message || 'Terjadi kesalahan saat menyimpan data customer'
+    );
+  } finally {
+    customerStore.loading = false;
   }
 };
 
-const handleDelete = (customerId) => {
+const handleDelete = async (customerId) => {
   const customer = customerStore.customers.find(c => c.id === customerId);
-  customerToDelete.value = customer;
-  isDeleteModalVisible.value = true;
-};
-
-const confirmDelete = async () => {
-  if (customerToDelete.value) {
-    try {
-      customerStore.deleteCustomer(customerToDelete.value.id);
-      window.toast?.success('Customer Deleted', `${customerToDelete.value.name} has been deleted successfully`);
-      // Refresh data after delete
-      await loadCustomers();
-    } catch (error) {
-      console.error('Error deleting customer:', error);
-      window.toast?.error('Error', 'Failed to delete customer');
-    }
+  
+  if (!customer) return;
+  
+  const result = await swalUtils.confirmDelete(
+    'Hapus Customer?',
+    `Apakah Anda yakin ingin menghapus customer "${customer.name}"? Data yang dihapus tidak dapat dikembalikan!`
+  );
+  
+  if (result.isConfirmed) {
+    await confirmDelete(customer);
   }
-  cancelDelete();
 };
 
-const cancelDelete = () => {
-  isDeleteModalVisible.value = false;
-  customerToDelete.value = null;
+const confirmDelete = async (customer) => {
+  try {
+    customerStore.loading = true;
+    await customerAPI.deleteCustomer(customer.id);
+    
+    await swalUtils.toast.success(`${customer.name} berhasil dihapus! 🗑️`);
+    await loadCustomers(); // Refresh data
+    
+  } catch (error) {
+    console.error('Error deleting customer:', error);
+    const errorInfo = apiUtils.handleError(error);
+    
+    await swalUtils.error(
+      'Gagal Menghapus Data!',
+      errorInfo.message || 'Terjadi kesalahan saat menghapus customer'
+    );
+  } finally {
+    customerStore.loading = false;
+  }
 };
+
+
 
 // Server-side pagination and search handlers
 const handleSearch = (query) => {
@@ -257,24 +274,37 @@ const handlePerPageChange = (newPerPage) => {
   loadCustomers();
 };
 
-// Load customers from server (simulation)
+// Load customers from server
 const loadCustomers = async () => {
-  customerStore.loading = true;
-  
   try {
-    // This would be your actual API call
-    // const response = await api.getCustomers({
-    //   page: currentPage.value,
-    //   perPage: perPage.value,
-    //   search: searchQuery.value
-    // });
+    customerStore.loading = true;
     
-    // For now, simulate server-side filtering and pagination
-    await simulateServerRequest();
+    const params = {
+      page: currentPage.value,
+      limit: perPage.value,
+      ...(searchQuery.value && { search: searchQuery.value })
+    };
+    
+    const response = await customerAPI.getCustomers(params);
+    
+    // Update store and pagination data
+    customerStore.customers = response.data?.customers || response.customers || [];
+    totalItems.value = response.data?.total || response.total || 0;
     
   } catch (error) {
     console.error('Error loading customers:', error);
-    customerStore.error = 'Failed to load customers';
+    const errorInfo = apiUtils.handleError(error);
+    
+    // For development fallback with dummy data
+    if (errorInfo.status === 0) {
+      console.warn('API not available, using dummy data');
+      await simulateServerRequest();
+    } else {
+      await swalUtils.error(
+        'Gagal Memuat Data!',
+        'Tidak dapat memuat data customer dari server'
+      );
+    }
   } finally {
     customerStore.loading = false;
   }

@@ -1,17 +1,10 @@
 import { defineStore } from 'pinia';
-
-// Sample report data to simulate a backend
-const sampleReports = [
-  { id: 't1', date: '2025-09-24', customerName: 'John Doe', total: 50000, paymentMethod: 'cash' },
-  { id: 't2', date: '2025-09-24', customerName: 'Jane Smith', total: 75000, paymentMethod: 'qris' },
-  { id: 't3', date: '2025-09-23', customerName: 'Peter Jones', total: 32000, paymentMethod: 'card' },
-  { id: 't4', date: '2025-08-15', customerName: 'John Doe', total: 120000, paymentMethod: 'cash' },
-  { id: 't5', date: '2025-08-10', customerName: 'Emily White', total: 88000, paymentMethod: 'qris' },
-];
+import { reportAPI, apiUtils } from '../services/index.js';
 
 export const useReportStore = defineStore('report', {
   state: () => ({
     reports: [],
+    error: null,
     loading: false,
     filter: {
       startDate: new Date().toISOString().split('T')[0], // Defaults to today
@@ -20,31 +13,95 @@ export const useReportStore = defineStore('report', {
   }),
   getters: {
     filteredReports: (state) => {
-      if (!state.filter.startDate || !state.filter.endDate) {
-        return state.reports;
-      }
-      const start = new Date(state.filter.startDate);
-      const end = new Date(state.filter.endDate);
-      end.setHours(23, 59, 59, 999); // Include the whole end day
-
-      return state.reports.filter(report => {
-        const reportDate = new Date(report.date);
-        return reportDate >= start && reportDate <= end;
-      });
+      // If using API, reports should already be filtered by date
+      return state.reports;
     },
   },
   actions: {
-    // Simulate fetching reports from a backend
-    async fetchReports() {
+    // Fetch reports from API
+    async fetchReports(params = {}) {
       this.loading = true;
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      this.reports = sampleReports;
-      this.loading = false;
+      this.error = null;
+      
+      try {
+        // Use filter dates if no params provided
+        const queryParams = {
+          start_date: params.start_date || this.filter.startDate,
+          end_date: params.end_date || this.filter.endDate,
+          ...params
+        };
+        
+        const response = await reportAPI.getReports(queryParams);
+        this.reports = response.data?.reports || response.reports || [];
+        
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
     },
-    setFilter(dates) {
+
+    // Get summary report
+    async getSummaryReport(params = {}) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const queryParams = {
+          start_date: params.start_date || this.filter.startDate,
+          end_date: params.end_date || this.filter.endDate,
+          ...params
+        };
+        
+        const response = await reportAPI.getSummaryReport(queryParams);
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Get financial report
+    async getFinancialReport(params = {}) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const queryParams = {
+          start_date: params.start_date || this.filter.startDate,
+          end_date: params.end_date || this.filter.endDate,
+          ...params
+        };
+        
+        const response = await reportAPI.getFinancialReport(queryParams);
+        return { success: true, data: response };
+      } catch (error) {
+        const errorInfo = apiUtils.handleError(error);
+        this.error = errorInfo.message;
+        return { success: false, error: errorInfo };
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Set filter dates and fetch reports
+    async setFilter(dates) {
       this.filter.startDate = dates.startDate;
       this.filter.endDate = dates.endDate;
+      
+      // Auto fetch reports with new filter
+      await this.fetchReports();
     },
+
+    // Clear error
+    clearError() {
+      this.error = null;
+    }
   },
 });
